@@ -7,6 +7,7 @@
  *
  */
 #include <SoftwareSerial.h>
+#include <stdlib.h>
 
 #pragma GCC diagnostic ignored "-Wwrite-strings"
 
@@ -26,9 +27,14 @@ SoftwareSerial PROBE_SERIAL(RX_PIN, TX_PIN);
  */
 #define SSID     ""
 #define PASS     ""
-#define SERVER   "127.0.0.1"
+#define SERVER   "192.168.10.104"
 
 #define PORT     "7777"
+
+#define LEN_BUFFER 128
+
+char * buffer;
+int readIndex;
 
 boolean flagWifi = false;
 boolean flagServer = false;
@@ -42,8 +48,12 @@ void setup()
   
   pinMode(RESET_PIN, OUTPUT);
   pinMode(BOARD_LED, OUTPUT);
-  
-  initWiFi();
+
+  buffer = (char *)malloc(LEN_BUFFER);  
+  memset(buffer, 0, LEN_BUFFER);
+  readIndex = 0;
+
+  initWiFi();  
 }
 
 unsigned long digitTime = 0;
@@ -75,19 +85,48 @@ void loop()
   /*
    * 디버깅 시리얼에 데이터가 있는지 검사한다.
    */
-  if ( PROBE_SERIAL.available() )
+  int avaLen = PROBE_SERIAL.available();
+  if ( avaLen > 0 )
   {
-    String line = readLine(&PROBE_SERIAL);
-    
-    if ( line.length() > 0 )
+    char ch;
+    do
     {
-      String data = "";
-      data.concat("@@log,0=");
-      data.concat(line);
-      data.concat("\r\n");
-      
-      sendData(0, data);
-    }
+      ch = PROBE_SERIAL.read();
+      if ( ch == '\n' )
+      {
+        buffer[readIndex] = 0;
+        readIndex = 0;
+        
+        String data = "";
+        data.concat("@@log,0=");
+        data.concat(buffer);
+        data.concat("\r\n");
+        
+        sendData(0, data);
+      }
+      else 
+      {
+        if ( readIndex == LEN_BUFFER-1 )
+        {
+          buffer[readIndex] = 0;
+          readIndex = 0;
+          
+          String data = "";
+          data.concat("@@log,0=");
+          data.concat(buffer);
+          data.concat("\r\n");
+          
+          sendData(0, data);
+        }
+        if ( ch != '\r' )
+        {
+          if ( readIndex < LEN_BUFFER-1 )
+           {
+             buffer[readIndex++] = ch;
+           }
+        }
+      }
+    }while(--avaLen > 0);
   }
   
   if (WIFI_SERIAL.available())
@@ -171,26 +210,6 @@ boolean connectToServer()
 /*
  * 서버로 데이터를 전송한다.
  */
-boolean sendData(const int ch, const char *packet)
-{
-  char packetLen[8];
-  memset(packetLen, 0x00, 8);
-  itoa(strlen(packet), packetLen, 10);
-  
-  WIFI_SERIAL.print("AT+CIPSEND=");
-  WIFI_SERIAL.print(ch);
-  WIFI_SERIAL.print(',');
-  WIFI_SERIAL.println(packetLen);
-  if(WIFI_SERIAL.find(">")){        // wait for > to send data.
-    WIFI_SERIAL.print(packet);
-    delay(2);
-    return true;
-  }else{
-    delay(2);
-    return false;
-  }
-}
-
 boolean sendData(const int ch, const String data)
 {
   char packetLen[8];
@@ -203,6 +222,7 @@ boolean sendData(const int ch, const String data)
   WIFI_SERIAL.println(packetLen);
   if(WIFI_SERIAL.find(">")){        // wait for > to send data.
     WIFI_SERIAL.print(data);
+    WIFI_SERIAL.flush();
     delay(2);
     return true;
   }else{
@@ -220,12 +240,13 @@ void initWiFi()
   digitalWrite(RESET_PIN, LOW);
   delay(3);
   digitalWrite(RESET_PIN, HIGH);
-  
+
   do
   {
     if ( WIFI_SERIAL.available() > 0 )
     {
       String line = readLine(&WIFI_SERIAL);
+      
       if ( line.indexOf("ready") >= 0 )
         break;
       else
@@ -235,8 +256,8 @@ void initWiFi()
       delay(1);
   }while(1);
 
-  WIFI_SERIAL.println("AT+CSYSWDTDISABLE");
-  WIFI_SERIAL.find("OK");
+//  WIFI_SERIAL.println("AT+CSYSWDTDISABLE");
+//  WIFI_SERIAL.find("OK");
   
   WIFI_SERIAL.println("AT+ATE0");
   WIFI_SERIAL.find("OK");
