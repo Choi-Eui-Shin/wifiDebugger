@@ -1,0 +1,39 @@
+<project name="wifi debuger for Arduino" default="all" basedir=".">
+	<!-- 디렉토리 정보 -->
+	<property name="source" location="src" />
+	<property name="lib" location="lib" />
+	<property name="class" location="bin" />
+	
+	<path id="project.class.path">
+		<pathelement location="${class}" />
+		<pathelement location="${lib}/log4j-1.2.17.jar" />
+		<pathelement location="${lib}/mina-core-2.0.9.jar" />
+		<pathelement location="${lib}/slf4j-api-1.7.7.jar" />
+		<pathelement location="${lib}/slf4j-log4j12-1.7.7.jar" />
+	</path>
+	
+	<!-- 기본 타겟 -->
+	<target name="all" description="Initialize">
+		<!-- Create the time stamp -->
+	    <tstamp/>
+		<echo>작업완료 !!!</echo>
+	</target>
+
+	<!-- jar 파일을 만든다 -->
+	<target name="makeJAR" description="jar 파일 만들기">
+		<!-- Build Time -->
+		<tstamp>
+			<format property="TODAY" pattern="yyyy/MM/dd HH:mm:ss" />
+		</tstamp>
+		
+		<jar destfile="./wifi-debuger.jar" basedir="${class}">
+			<manifest>
+				<attribute name="Built-By" value="최의신"/>
+				<attribute name="Built-Time" value="${TODAY}"/>
+				<attribute name="Class-Path" value="log4j-1.2.17.jar mina-core-2.0.9.jar slf4j-api-1.7.7.jar slf4j-log4j12-1.7.7.jar" />
+				<attribute name="Main-Class" value="com.adu.wd.WifiDebug"/>
+			</manifest>
+		</jar>
+	</target>
+
+</project>
